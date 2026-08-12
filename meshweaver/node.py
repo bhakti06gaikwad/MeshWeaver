@@ -1,5 +1,4 @@
 import asyncio
-import socket
 
 
 class MeshNode:
@@ -25,6 +24,7 @@ class MeshNode:
         message = b"PING"
 
         self.transport.sendto(message, (host, port))
+
         print(f"PING sent to {host}:{port}")
 
     def stop(self):
@@ -36,6 +36,7 @@ class MeshNode:
 class MeshProtocol(asyncio.DatagramProtocol):
     def __init__(self, node):
         self.node = node
+        self.transport = None
 
     def connection_made(self, transport):
         self.transport = transport
