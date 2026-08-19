@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from meshweaver.dht import KademliaDHT
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -10,6 +11,8 @@ class MeshNode:
       self.transport = None
       self.running = False
       self.peers = {}
+
+      self.dht = KademliaDHT(self.node_id)
 
     
     def get_metadata(self):
@@ -95,6 +98,28 @@ class MeshNode:
     # Return all known peers.
 
       return list(self.peers.values())
+
+    def add_dht_peer(self, node_id, host, port):
+    #Add a peer to the DHT routing table.
+
+       if node_id == self.node_id:
+        return
+
+       self.dht.add_node(node_id, host, port)
+
+       print(
+            f"DHT peer added: "
+            f"{node_id} -> {host}:{port}"
+        )
+
+
+    def find_closest_peers(self, target_id, count=3):
+    #Find peers closest to a target node ID.
+
+        return self.dht.find_closest(
+            target_id,
+            count
+        )
 
 
 class MeshProtocol(asyncio.DatagramProtocol):
