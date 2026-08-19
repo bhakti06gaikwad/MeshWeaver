@@ -9,6 +9,7 @@ class MeshNode:
       self.port = port
       self.transport = None
       self.running = False
+      self.peers = {}
 
     
     def get_metadata(self):
@@ -17,6 +18,7 @@ class MeshNode:
             "host": self.host,
             "port": self.port,
             "running": self.running,
+            "peer_count": len(self.peers),
         }
 
     async def start(self):
@@ -64,6 +66,35 @@ class MeshNode:
         self.running = False
 
         print(f"Node {self.port} stopped")
+
+    def add_peer(self, node_id, host, port):
+     #Add or update a peer.
+
+      if node_id == self.node_id:
+         return
+
+      self.peers[node_id] = {
+        "node_id": node_id,
+        "host": host,
+        "port": port,
+        "status": "known",
+      }
+
+      print(f"Peer added: {node_id} -> {host}:{port}")
+
+
+    def remove_peer(self, node_id):
+      #Remove a peer from the peer table.
+
+      if node_id in self.peers:
+        del self.peers[node_id]
+        print(f"Peer removed: {node_id}")
+
+
+    def get_peers(self):
+    # Return all known peers.
+
+      return list(self.peers.values())
 
 
 class MeshProtocol(asyncio.DatagramProtocol):
