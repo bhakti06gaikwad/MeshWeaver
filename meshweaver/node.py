@@ -120,7 +120,31 @@ class MeshNode:
             target_id,
             count
         )
+    
+    def send_message(self, message, host, port):
+    #Send a JSON message to another node.
 
+        if not self.transport:
+            print("Cannot send message: node is not running")
+            return
+
+        data = json.dumps(message).encode("utf-8")
+        self.transport.sendto(data, (host, port))
+
+
+    async def join_peer(self, host, port):
+        #Ask an existing node to introduce us to the mesh.
+
+        message = {
+            "type": "JOIN",
+            "node_id": self.node_id,
+            "host": self.host,
+            "port": self.port,
+        }
+
+        self.send_message(message, host, port)
+
+        print(f"JOIN request sent to {host}:{port}")
 
 class MeshProtocol(asyncio.DatagramProtocol):
 
@@ -158,8 +182,108 @@ class MeshProtocol(asyncio.DatagramProtocol):
 
             print(f"PONG sent to {addr}")
 
+        elif message_type == "JOIN":
+            self.handle_join(message, addr)
+
+        elif message_type == "PEERS":
+            self.handle_peers(message)
+
         elif message_type == "PONG":
             print(f"PONG received from {addr}")
 
         else:
             print(f"Unknown message type: {message_type}")
+
+    def handle_join(self, message, addr):
+    #Handle a node requesting to join the mesh.
+
+        node_id = message.get("node_id")
+        host = message.get("host")
+        port = message.get("port")
+
+        if not node_id or not host or not port:
+            print("Invalid JOIN request")
+            return
+
+        # Add joining node to our peer table
+        self.node.add_peer(node_id, host, port)
+
+        # Add joining node to DHT
+        self.node.add_dht_peer(node_id, host, port)
+
+        print(
+            f"Node {node_id} joined from "
+            f"{host}:{port}"
+        )
+
+        # Send our own information + known peers
+        peers = [
+            {
+                "node_id": self.node.node_id,
+                "host": self.node.host,
+                "port": self.node.port,
+            }
+        ]
+
+        for peer in self.node.get_peers():
+
+            # Don't send the joining node back to itself
+            if peer["node_id"] == node_id:
+                continue
+
+            peers.append({
+                "node_id": peer["node_id"],
+                "host": peer["host"],
+                "port": peer["port"],
+            })
+
+        response = {
+            "type": "PEERS",
+            "sender": self.node.node_id,
+            "peers": peers,
+        }
+
+        self.transport.sendto(
+            json.dumps(response).encode("utf-8"),
+            addr
+        )
+
+        print(f"Sent {len(peers)} peers to {addr}")
+
+    def handle_peers(self, message):
+        #Handle peers received from another node.
+
+        peers = message.get("peers", [])
+
+        print(f"Received {len(peers)} peers")
+
+        for peer in peers:
+            node_id = peer.get("node_id")
+            host = peer.get("host")
+            port = peer.get("port")
+
+            if not node_id or not host or not port:
+                continue
+
+            # Don't add ourselves
+            if node_id == self.node.node_id:
+                continue
+
+            # Add to peer table
+            self.node.add_peer(
+                node_id,
+                host,
+                port
+            )
+
+            # Add to DHT
+            self.node.add_dht_peer(
+                node_id,
+                host,
+                port
+            )
+
+        print(
+            f"Peer discovery complete. "
+            f"Known peers: {len(self.node.peers)}"
+        )
