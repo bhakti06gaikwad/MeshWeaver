@@ -2,6 +2,7 @@ import asyncio
 import json
 import uuid
 from meshweaver.dht import KademliaDHT
+from meshweaver.monitor import ResourceMonitor
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -16,12 +17,15 @@ class MeshNode:
 
     
     def get_metadata(self):
+        resources = self.get_resources()
+
         return {
             "node_id": self.node_id,
             "host": self.host,
             "port": self.port,
             "running": self.running,
             "peer_count": len(self.peers),
+            "resources": resources,
         }
 
     async def start(self):
@@ -145,6 +149,10 @@ class MeshNode:
         self.send_message(message, host, port)
 
         print(f"JOIN request sent to {host}:{port}")
+    def get_resources(self):
+    # Return current resource usage.
+
+        return ResourceMonitor.get_resources()
 
 class MeshProtocol(asyncio.DatagramProtocol):
 
