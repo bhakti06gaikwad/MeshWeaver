@@ -193,6 +193,38 @@ class MeshNode:
 
         return selected
 
+    async def route_task(self, task):
+    #Select the best node and send the task.
+
+        selected = self.select_task_node()
+
+        if not selected:
+            print("No node available for task")
+            return False
+
+        # If the current node is selected, don't send over network.
+        if selected["node_id"] == self.node_id:
+            print("Task selected for local execution")
+            return True
+
+        message = {
+            "type": "TASK",
+            "sender": self.node_id,
+            "task": task,
+        }
+
+        self.send_message(
+            message,
+            selected["host"],
+            selected["port"]
+        )
+
+        print(
+            f"TASK sent to {selected['host']}:{selected['port']}"
+        )
+
+        return True
+
 class MeshProtocol(asyncio.DatagramProtocol):
 
     def __init__(self, node):
@@ -237,6 +269,9 @@ class MeshProtocol(asyncio.DatagramProtocol):
 
         elif message_type == "GOSSIP":
             self.handle_gossip(message, addr)
+
+        elif message_type == "TASK":
+            self.handle_task(message, addr)
 
         elif message_type == "PONG":
             print(f"PONG received from {addr}")
@@ -361,3 +396,20 @@ class MeshProtocol(asyncio.DatagramProtocol):
             f"CPU={resources.get('cpu_percent')}%, "
             f"RAM={resources.get('memory_percent')}%"
         )
+
+    def handle_task(self, message, addr):
+    #Receive a task from another node.
+
+        sender = message.get("sender")
+        task = message.get("task")
+
+        if not task:
+            print("Invalid TASK message")
+            return
+
+        print(
+            f"TASK received from {sender} "
+            f"at {addr}"
+        )
+
+        print(f"Task: {task}")
