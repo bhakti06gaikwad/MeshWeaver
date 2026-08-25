@@ -3,6 +3,7 @@ import json
 import uuid
 from meshweaver.dht import KademliaDHT
 from meshweaver.monitor import ResourceMonitor
+from meshweaver.gossip import GossipManager
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -15,7 +16,8 @@ class MeshNode:
 
       self.dht = KademliaDHT(self.node_id)
 
-    
+      self.gossip = GossipManager(self)
+      self.peer_metadata = {} 
     def get_metadata(self):
         resources = self.get_resources()
 
@@ -154,6 +156,22 @@ class MeshNode:
 
         return ResourceMonitor.get_resources()
 
+    def gossip_to_peer(self, host, port):
+    # Send this node's metadata to another node.
+
+        if not self.running or not self.transport:
+            print("Cannot gossip: node is not running")
+            return
+
+        data = self.gossip.encode_message()
+
+        self.transport.sendto(
+            data,
+            (host, port)
+        )
+
+        print(f"GOSSIP sent to {host}:{port}")
+
 class MeshProtocol(asyncio.DatagramProtocol):
 
     def __init__(self, node):
@@ -195,6 +213,9 @@ class MeshProtocol(asyncio.DatagramProtocol):
 
         elif message_type == "PEERS":
             self.handle_peers(message)
+
+        elif message_type == "GOSSIP":
+            self.handle_gossip(message, addr)
 
         elif message_type == "PONG":
             print(f"PONG received from {addr}")
@@ -294,4 +315,28 @@ class MeshProtocol(asyncio.DatagramProtocol):
         print(
             f"Peer discovery complete. "
             f"Known peers: {len(self.node.peers)}"
+        )
+    def handle_gossip(self, message, addr):
+    #Process resource information received from another node.
+
+        sender = message.get("sender")
+        metadata = message.get("metadata")
+
+        if not sender or not metadata:
+            print("Invalid GOSSIP message")
+            return
+
+        self.node.peer_metadata[sender] = metadata
+
+        print(
+            f"GOSSIP received from {sender} "
+            f"at {addr}"
+        )
+
+        resources = metadata.get("resources", {})
+
+        print(
+            f"Peer resources: "
+            f"CPU={resources.get('cpu_percent')}%, "
+            f"RAM={resources.get('memory_percent')}%"
         )
