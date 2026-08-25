@@ -4,6 +4,7 @@ import uuid
 from meshweaver.dht import KademliaDHT
 from meshweaver.monitor import ResourceMonitor
 from meshweaver.gossip import GossipManager
+from meshweaver.scheduler import TaskScheduler
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -18,6 +19,9 @@ class MeshNode:
 
       self.gossip = GossipManager(self)
       self.peer_metadata = {} 
+
+      self.scheduler = TaskScheduler(self)
+
     def get_metadata(self):
         resources = self.get_resources()
 
@@ -171,6 +175,23 @@ class MeshNode:
         )
 
         print(f"GOSSIP sent to {host}:{port}")
+
+    def select_task_node(self):
+    #Select the best node for a task.
+
+        selected = self.scheduler.select_node()
+
+        if selected:
+            print(
+                f"Selected node: "
+                f"{selected['node_id']} "
+                f"(CPU={selected['cpu_percent']}%, "
+                f"RAM={selected['memory_percent']}%)"
+            )
+        else:
+            print("No suitable node found")
+
+        return selected
 
 class MeshProtocol(asyncio.DatagramProtocol):
 
