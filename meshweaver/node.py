@@ -5,6 +5,7 @@ from meshweaver.dht import KademliaDHT
 from meshweaver.monitor import ResourceMonitor
 from meshweaver.gossip import GossipManager
 from meshweaver.scheduler import TaskScheduler
+from meshweaver.executor import TaskExecutor
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -21,6 +22,7 @@ class MeshNode:
       self.peer_metadata = {} 
 
       self.scheduler = TaskScheduler(self)
+      self.executor = TaskExecutor()
 
     def get_metadata(self):
         resources = self.get_resources()
@@ -276,6 +278,9 @@ class MeshProtocol(asyncio.DatagramProtocol):
         elif message_type == "PONG":
             print(f"PONG received from {addr}")
 
+        elif message_type == "TASK_RESULT":
+            self.handle_task_result(message, addr)
+
         else:
             print(f"Unknown message type: {message_type}")
 
@@ -398,7 +403,7 @@ class MeshProtocol(asyncio.DatagramProtocol):
         )
 
     def handle_task(self, message, addr):
-    #Receive a task from another node.
+    #Receive and execute a task.
 
         sender = message.get("sender")
         task = message.get("task")
@@ -413,3 +418,35 @@ class MeshProtocol(asyncio.DatagramProtocol):
         )
 
         print(f"Task: {task}")
+
+        # Execute the task
+        result = self.node.executor.execute(task)
+
+        print(f"Task result: {result}")
+
+        # Send result back to sender
+        response = {
+            "type": "TASK_RESULT",
+            "sender": self.node.node_id,
+            "result": result,
+        }
+
+        self.transport.sendto(
+            json.dumps(response).encode("utf-8"),
+            addr
+        )
+
+        print(f"TASK_RESULT sent to {addr}")
+
+    def handle_task_result(self, message, addr):
+    # Handle the result of a remotely executed task.
+
+        sender = message.get("sender")
+        result = message.get("result")
+
+        print(
+            f"TASK_RESULT received from "
+            f"{sender} at {addr}"
+        )
+
+        print(f"Result: {result}")
