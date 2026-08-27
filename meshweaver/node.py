@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+import time
 from meshweaver.dht import KademliaDHT
 from meshweaver.monitor import ResourceMonitor
 from meshweaver.gossip import GossipManager
@@ -15,6 +16,7 @@ class MeshNode:
       self.transport = None
       self.running = False
       self.peers = {}
+      self.peer_last_seen = {}
 
       self.dht = KademliaDHT(self.node_id)
 
@@ -227,6 +229,27 @@ class MeshNode:
 
         return True
 
+    async def heartbeat(self, host, port):
+        #Send a heartbeat to another node.
+
+        if not self.running or not self.transport:
+            print("Cannot send HEARTBEAT: node is not running")
+            return
+
+        message = {
+            "type": "HEARTBEAT",
+            "sender": self.node_id,
+            "timestamp": time.time(),
+        }
+
+        self.send_message(
+            message,
+            host,
+            port
+        )
+
+        print(f"HEARTBEAT sent to {host}:{port}")
+
 class MeshProtocol(asyncio.DatagramProtocol):
 
     def __init__(self, node):
@@ -278,11 +301,33 @@ class MeshProtocol(asyncio.DatagramProtocol):
         elif message_type == "PONG":
             print(f"PONG received from {addr}")
 
+        elif message_type == "HEARTBEAT":
+            self.handle_heartbeat(message, addr)
+
+        elif message_type == "HEARTBEAT_ACK":
+            self.handle_heartbeat_ack(message, addr)
+
         elif message_type == "TASK_RESULT":
             self.handle_task_result(message, addr)
 
         else:
             print(f"Unknown message type: {message_type}")
+
+    def handle_heartbeat_ack(self, message, addr):
+    #Process a heartbeat response.
+
+        sender = message.get("sender")
+
+        if not sender:
+            print("Invalid HEARTBEAT_ACK message")
+            return
+
+        self.node.peer_last_seen[sender] = time.time()
+
+        print(
+            f"HEARTBEAT_ACK received from "
+            f"{sender} at {addr}"
+        )
 
     def handle_join(self, message, addr):
     #Handle a node requesting to join the mesh.
@@ -450,3 +495,30 @@ class MeshProtocol(asyncio.DatagramProtocol):
         )
 
         print(f"Result: {result}")
+
+
+
+    def handle_heartbeat(self, message, addr):
+        #Respond to a heartbeat request.
+        
+        sender = message.get("sender")
+
+        if not sender:
+            print("Invalid HEARTBEAT message")
+            return
+
+        # Record the last time this peer contacted us
+        self.node.peer_last_seen[sender] = time.time()
+
+        response = {
+            "type": "HEARTBEAT_ACK",
+            "sender": self.node.node_id,
+            "timestamp": time.time(),
+        }
+
+        self.transport.sendto(
+            json.dumps(response).encode("utf-8"),
+            addr
+        )
+
+        print(f"HEARTBEAT_ACK sent to {addr}")
