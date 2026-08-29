@@ -250,6 +250,28 @@ class MeshNode:
 
         print(f"HEARTBEAT sent to {host}:{port}")
 
+    def check_peer_health(self, timeout=10):
+    #Mark peers as offline if they haven't responded recently.
+
+        current_time = time.time()
+
+        for node_id in list(self.peers.keys()):
+
+            last_seen = self.peer_last_seen.get(node_id)
+
+            if last_seen is None:
+                continue
+
+            if current_time - last_seen > timeout:
+                self.peers[node_id]["status"] = "offline"
+
+                print(
+                    f"Peer {node_id} marked OFFLINE"
+                )
+
+            else:
+                self.peers[node_id]["status"] = "online"
+                
 class MeshProtocol(asyncio.DatagramProtocol):
 
     def __init__(self, node):
