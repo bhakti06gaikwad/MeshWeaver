@@ -197,37 +197,67 @@ class MeshNode:
 
         return selected
 
-    async def route_task(self, task):
-    #Select the best node and send the task.
+    async def route_task(self, task, retries=2):
+    #Route a task and retry using another node if necessary.
 
-        selected = self.select_task_node()
+        attempted_nodes = set()
 
-        if not selected:
-            print("No node available for task")
-            return False
+        for attempt in range(retries + 1):
 
-        # If the current node is selected, don't send over network.
-        if selected["node_id"] == self.node_id:
-            print("Task selected for local execution")
+            selected = self.select_task_node()
+
+            if not selected:
+                print("No node available for task")
+                return False
+
+            node_id = selected["node_id"]
+
+            # Don't select the same failed node again
+            if node_id in attempted_nodes:
+                print(f"Node {node_id} was already attempted")
+                return False
+
+            attempted_nodes.add(node_id)
+
+            # Don't send to an offline peer
+            if selected.get("status") == "offline":
+                print(
+                    f"Node {node_id} is offline. "
+                    f"Trying another node..."
+                )
+                continue
+
+            # Local execution
+            if node_id == self.node_id:
+                print("Task selected for local execution")
+
+                result = self.executor.execute(task)
+
+                print(f"Local task result: {result}")
+
+                return True
+
+            message = {
+                "type": "TASK",
+                "sender": self.node_id,
+                "task": task,
+            }
+
+            self.send_message(
+                message,
+                selected["host"],
+                selected["port"]
+            )
+
+            print(
+                f"TASK sent to "
+                f"{selected['host']}:{selected['port']}"
+            )
+
             return True
 
-        message = {
-            "type": "TASK",
-            "sender": self.node_id,
-            "task": task,
-        }
-
-        self.send_message(
-            message,
-            selected["host"],
-            selected["port"]
-        )
-
-        print(
-            f"TASK sent to {selected['host']}:{selected['port']}"
-        )
-
-        return True
+        print("Task routing failed after retries")
+        return False
 
     async def heartbeat(self, host, port):
         #Send a heartbeat to another node.

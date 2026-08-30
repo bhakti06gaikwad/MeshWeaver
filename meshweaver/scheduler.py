@@ -25,6 +25,10 @@ class TaskScheduler:
                 "node_id": node_id,
                 "host": metadata.get("host"),
                 "port": metadata.get("port"),
+                "status": self.node.peers.get(
+                        node_id,
+                        {}
+                ).get("status", "known"),
                 "cpu_percent": cpu,
                 "memory_percent": memory,
                 "score": score,
@@ -48,7 +52,15 @@ class TaskScheduler:
         if not candidates:
             return None
 
+        online_candidates = [
+            node for node in candidates
+            if node.get("status") != "offline"
+        ]
+
+        if not online_candidates:
+            return None
+
         return min(
-            candidates,
+            online_candidates,
             key=lambda node: node["score"]
         )
