@@ -198,7 +198,7 @@ class MeshNode:
         return selected
 
     async def route_task(self, task, retries=2):
-    #Route a task and retry using another node if necessary.
+    # Route a task to an available node.
 
         attempted_nodes = set()
 
@@ -207,33 +207,29 @@ class MeshNode:
             selected = self.select_task_node()
 
             if not selected:
-                print("No node available for task")
+                print("No available node found")
                 return False
 
             node_id = selected["node_id"]
 
-            # Don't select the same failed node again
             if node_id in attempted_nodes:
-                print(f"Node {node_id} was already attempted")
+                print(f"Node {node_id} already attempted")
                 return False
 
             attempted_nodes.add(node_id)
 
-            # Don't send to an offline peer
             if selected.get("status") == "offline":
                 print(
-                    f"Node {node_id} is offline. "
-                    f"Trying another node..."
+                    f"Node {node_id} is OFFLINE"
                 )
                 continue
 
-            # Local execution
             if node_id == self.node_id:
-                print("Task selected for local execution")
+                print("Executing task locally")
 
                 result = self.executor.execute(task)
 
-                print(f"Local task result: {result}")
+                print(f"Local result: {result}")
 
                 return True
 
@@ -256,7 +252,7 @@ class MeshNode:
 
             return True
 
-        print("Task routing failed after retries")
+        print("All task routing attempts failed")
         return False
 
     async def heartbeat(self, host, port):
