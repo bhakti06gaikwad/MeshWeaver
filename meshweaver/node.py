@@ -7,6 +7,7 @@ from meshweaver.monitor import ResourceMonitor
 from meshweaver.gossip import GossipManager
 from meshweaver.scheduler import TaskScheduler
 from meshweaver.executor import TaskExecutor
+from meshweaver.security import sign_message, verify_message
 
 class MeshNode:
     def __init__(self, host="127.0.0.1", port=0):
@@ -232,12 +233,13 @@ class MeshNode:
                 print(f"Local result: {result}")
 
                 return True
-
             message = {
                 "type": "TASK",
                 "sender": self.node_id,
                 "task": task,
             }
+
+            message["signature"] = sign_message(message)
 
             self.send_message(
                 message,
@@ -497,7 +499,27 @@ class MeshProtocol(asyncio.DatagramProtocol):
 
     def handle_task(self, message, addr):
     #Receive and execute a task.
+        signature = message.get("signature")
 
+        if not signature:
+            print("TASK rejected: missing signature")
+            return
+
+        message_to_verify = {
+            "type": message.get("type"),
+            "sender": message.get("sender"),
+            "task": message.get("task"),
+        }
+
+        if not verify_message(
+            message_to_verify,
+            signature
+        ):
+            print("TASK rejected: invalid signature")
+            return
+
+        print("TASK signature verified successfully")
+        
         sender = message.get("sender")
         task = message.get("task")
 
