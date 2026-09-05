@@ -1,18 +1,17 @@
 import hashlib
 import hmac
 import json
+import os
 
 
-SECRET_KEY = b"meshweaver-secret-key"
+SECRET_KEY = os.getenv(
+    "MESHWEAVER_SECRET_KEY",
+    "meshweaver-secret-key"
+).encode("utf-8")
 
 
 def sign_message(message):
-    """Create a cryptographic signature for a message."""
-
-    data = json.dumps(
-        message,
-        sort_keys=True
-    ).encode("utf-8")
+    data = json.dumps(message, sort_keys=True).encode("utf-8")
 
     signature = hmac.new(
         SECRET_KEY,
@@ -24,8 +23,6 @@ def sign_message(message):
 
 
 def verify_message(message, signature):
-    """Verify that a message has a valid signature."""
-
     expected_signature = sign_message(message)
 
     return hmac.compare_digest(
