@@ -523,16 +523,17 @@ class MeshProtocol(asyncio.DatagramProtocol):
         sender = message.get("sender")
         task = message.get("task")
 
-        if not task:
-            print("Invalid TASK message")
+        if not isinstance(task, dict):
+            print("TASK rejected: invalid task format")
             return
 
-        print(
-            f"TASK received from {sender} "
-            f"at {addr}"
-        )
+        task_id = task.get("task_id")
 
-        print(f"Task: {task}")
+        if not task_id:
+            print("TASK rejected: missing task_id")
+            return
+
+        print(f"Task validation successful: {task_id}")
 
         # Execute the task
         result = self.node.executor.execute(task)
