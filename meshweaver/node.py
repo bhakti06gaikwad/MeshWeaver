@@ -534,6 +534,17 @@ class MeshProtocol(asyncio.DatagramProtocol):
             return
 
         print(f"Task validation successful: {task_id}")
+        operation = task.get("operation")
+
+        allowed_operations = {"add", "subtract", "multiply"}
+
+        if operation not in allowed_operations:
+            print(f"TASK rejected: unsupported operation '{operation}'")
+            return
+
+        print(f"Operation validation successful: {operation}")
+
+        
 
         # Execute the task
         result = self.node.executor.execute(task)
