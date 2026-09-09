@@ -544,6 +544,20 @@ class MeshProtocol(asyncio.DatagramProtocol):
 
         print(f"Operation validation successful: {operation}")
 
+        numbers = task.get("numbers")
+        if not isinstance(numbers, list):
+            print("TASK rejected: numbers must be a list")
+            return
+
+        if len(numbers) == 0:
+            print("TASK rejected: numbers list cannot be empty")
+            return
+
+        if not all(isinstance(num, (int, float)) for num in numbers):
+            print("TASK rejected: numbers must contain only numeric values")
+            return
+
+        print(f"Numbers validation successful: {numbers}")
         
 
         # Execute the task
