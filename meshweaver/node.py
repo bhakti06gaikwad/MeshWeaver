@@ -26,6 +26,7 @@ class MeshNode:
 
       self.scheduler = TaskScheduler(self)
       self.executor = TaskExecutor()
+      self.completed_tasks = set()
 
     def get_metadata(self):
         resources = self.get_resources()
@@ -534,6 +535,10 @@ class MeshProtocol(asyncio.DatagramProtocol):
             return
 
         print(f"Task validation successful: {task_id}")
+        if task_id in self.node.completed_tasks:
+            print(f"TASK rejected: duplicate task_id '{task_id}'")
+            return
+        
         operation = task.get("operation")
 
         allowed_operations = {"add", "subtract", "multiply"}
@@ -564,7 +569,10 @@ class MeshProtocol(asyncio.DatagramProtocol):
         # Execute the task
         result = self.node.executor.execute(task)
 
+        self.node.completed_tasks.add(task_id)
+
         print(f"Task result: {result}")
+       
 
         # Send result back to sender
         response = {
