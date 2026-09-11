@@ -567,12 +567,21 @@ class MeshProtocol(asyncio.DatagramProtocol):
         
 
         # Execute the task
-        result = self.node.executor.execute(task)
+        try:
+            result = self.node.executor.execute(task)
 
-        self.node.completed_tasks.add(task_id)
+            self.node.completed_tasks.add(task_id)
 
-        print(f"Task result: {result}")
-       
+            print(f"Task result: {result}")
+
+        except Exception as e:
+            print(f"TASK execution failed: {e}")
+
+            result = {
+                "task_id": task_id,
+                "success": False,
+                "error": str(e),
+            }
 
         # Send result back to sender
         response = {
