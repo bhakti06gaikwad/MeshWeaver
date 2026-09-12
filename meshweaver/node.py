@@ -570,6 +570,14 @@ class MeshProtocol(asyncio.DatagramProtocol):
         try:
             result = self.node.executor.execute(task)
 
+            if not isinstance(result, dict):
+                print("TASK execution failed: invalid result format")
+                return
+
+            if result.get("task_id") != task_id:
+                print("TASK execution failed: task_id mismatch")
+                return
+
             self.node.completed_tasks.add(task_id)
 
             print(f"Task result: {result}")
@@ -583,6 +591,7 @@ class MeshProtocol(asyncio.DatagramProtocol):
                 "error": str(e),
             }
 
+            
         # Send result back to sender
         response = {
             "type": "TASK_RESULT",
