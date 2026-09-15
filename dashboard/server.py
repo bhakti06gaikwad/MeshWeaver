@@ -1,226 +1,204 @@
+import asyncio
+import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from meshweaver.node import MeshNode
 
 
-node = MeshNode(port=9001)
+node = MeshNode(host="127.0.0.1", port=9001)
+
+
+def start_node():
+    asyncio.run(node.start())
+
+
+# Start MeshWeaver node in background
+node_thread = threading.Thread(target=start_node, daemon=True)
+node_thread.start()
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
+        metadata = node.get_metadata()
+        resources = metadata.get("resources", {})
 
-        if self.path == "/":
+        status = "ONLINE" if metadata.get("running") else "OFFLINE"
 
-            metadata = node.get_metadata()
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>MeshWeaver Dashboard</title>
 
-            status = "ONLINE" if metadata["running"] else "OFFLINE"
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background: #0f172a;
+                    color: white;
+                    margin: 0;
+                    padding: 30px;
+                }}
 
-            resources = metadata.get("resources", {})
+                h1 {{
+                    text-align: center;
+                }}
 
-            cpu = resources.get("cpu_percent", 0)
-            memory = resources.get("memory_percent", 0)
+                .container {{
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 20px;
+                    margin-top: 30px;
+                }}
 
-            html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <title>MeshWeaver Dashboard</title>
+                .card {{
+                    background: #1e293b;
+                    padding: 25px;
+                    border-radius: 12px;
+                    text-align: center;
+                }}
 
-    <style>
+                .value {{
+                    font-size: 28px;
+                    font-weight: bold;
+                    margin-top: 10px;
+                }}
 
-        body {{
-            font-family: Arial, sans-serif;
-            background: #0f172a;
-            color: white;
-            margin: 0;
-            padding: 30px;
-        }}
+                .online {{
+                    color: #22c55e;
+                }}
 
-        h1 {{
-            text-align: center;
-            margin-bottom: 35px;
-        }}
+                .section {{
+                    background: #1e293b;
+                    margin-top: 30px;
+                    padding: 25px;
+                    border-radius: 12px;
+                }}
 
-        .container {{
-            max-width: 1100px;
-            margin: auto;
-        }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                }}
 
-        .cards {{
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-        }}
+                th, td {{
+                    padding: 12px;
+                    border-bottom: 1px solid #334155;
+                    text-align: left;
+                }}
+            </style>
+        </head>
 
-        .card {{
-            background: #1e293b;
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-        }}
+        <body>
 
-        .number {{
-            font-size: 32px;
-            font-weight: bold;
-            margin-top: 10px;
-        }}
+            <h1>MeshWeaver Monitoring Dashboard</h1>
 
-        .online {{
-            color: #22c55e;
-        }}
+            <div class="container">
 
-        .offline {{
-            color: #ef4444;
-        }}
+                <div class="card">
+                    <div>Total Nodes</div>
+                    <div class="value">1</div>
+                </div>
 
-        .info {{
-            background: #1e293b;
-            padding: 25px;
-            border-radius: 12px;
-            margin-bottom: 25px;
-        }}
+                <div class="card">
+                    <div>Online Nodes</div>
+                    <div class="value online">
+                        {1 if metadata.get("running") else 0}
+                    </div>
+                </div>
 
-        .row {{
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #334155;
-        }}
+                <div class="card">
+                    <div>CPU Usage</div>
+                    <div class="value">
+                        {resources.get("cpu_percent", 0)}%
+                    </div>
+                </div>
 
-        .row:last-child {{
-            border-bottom: none;
-        }}
+                <div class="card">
+                    <div>Memory Usage</div>
+                    <div class="value">
+                        {resources.get("memory_percent", 0)}%
+                    </div>
+                </div>
 
-    </style>
-</head>
-
-<body>
-
-<div class="container">
-
-    <h1>MeshWeaver Monitoring Dashboard</h1>
-
-    <div class="cards">
-
-        <div class="card">
-            <h3>Node Status</h3>
-            <div class="number {'online' if metadata['running'] else 'offline'}">
-                {status}
             </div>
-        </div>
 
-        <div class="card">
-            <h3>Peers</h3>
-            <div class="number">
-                {metadata["peer_count"]}
+            <div class="section">
+
+                <h2>Node Information</h2>
+
+                <table>
+                    <tr>
+                        <th>Node ID</th>
+                        <td>{metadata.get("node_id")}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Host</th>
+                        <td>{metadata.get("host")}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Port</th>
+                        <td>{metadata.get("port")}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Status</th>
+                        <td class="online">{status}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Peer Count</th>
+                        <td>{metadata.get("peer_count", 0)}</td>
+                    </tr>
+                </table>
+
             </div>
-        </div>
 
-        <div class="card">
-            <h3>CPU</h3>
-            <div class="number">
-                {cpu:.1f}%
+            <div class="section">
+
+                <h2>System Resources</h2>
+
+                <p>
+                    CPU Usage:
+                    <b>{resources.get("cpu_percent", 0)}%</b>
+                </p>
+
+                <p>
+                    Memory Usage:
+                    <b>{resources.get("memory_percent", 0)}%</b>
+                </p>
+
             </div>
-        </div>
 
-        <div class="card">
-            <h3>Memory</h3>
-            <div class="number">
-                {memory:.1f}%
-            </div>
-        </div>
+        </body>
+        </html>
+        """
 
-    </div>
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
 
-    <div class="info">
-
-        <h2>Node Information</h2>
-
-        <div class="row">
-            <span>Node ID</span>
-            <span>{metadata["node_id"]}</span>
-        </div>
-
-        <div class="row">
-            <span>Host</span>
-            <span>{metadata["host"]}</span>
-        </div>
-
-        <div class="row">
-            <span>Port</span>
-            <span>{metadata["port"]}</span>
-        </div>
-
-        <div class="row">
-            <span>Running</span>
-            <span>{metadata["running"]}</span>
-        </div>
-
-        <div class="row">
-            <span>Peer Count</span>
-            <span>{metadata["peer_count"]}</span>
-        </div>
-
-    </div>
-
-    <div class="info">
-
-        <h2>MeshWeaver Architecture</h2>
-
-        <div class="row">
-            <span>Network</span>
-            <span>P2P</span>
-        </div>
-
-        <div class="row">
-            <span>Communication</span>
-            <span>Async UDP</span>
-        </div>
-
-        <div class="row">
-            <span>Peer Discovery</span>
-            <span>Kademlia DHT</span>
-        </div>
-
-        <div class="row">
-            <span>Resource Monitoring</span>
-            <span>CPU / Memory</span>
-        </div>
-
-    </div>
-
-</div>
-
-</body>
-</html>
-"""
-
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-
-            self.wfile.write(html.encode())
-
-        else:
-            self.send_response(404)
-            self.end_headers()
+        self.wfile.write(html.encode("utf-8"))
 
 
-def start_dashboard(host="127.0.0.1", port=8000):
+def main():
+    print("===================================")
+    print("     MeshWeaver Dashboard")
+    print("===================================")
+    print("Dashboard: http://127.0.0.1:8000")
+    print("Node:      127.0.0.1:9001")
+    print("===================================")
 
-    server = HTTPServer((host, port), DashboardHandler)
-
-    print(f"MeshWeaver Dashboard running at http://{host}:{port}")
+    server = HTTPServer(("127.0.0.1", 8000), DashboardHandler)
 
     try:
         server.serve_forever()
-
     except KeyboardInterrupt:
-        print("\nDashboard stopped.")
-
+        print("\nStopping dashboard...")
+        node.stop()
         server.server_close()
 
 
 if __name__ == "__main__":
-    start_dashboard()
+    main()
