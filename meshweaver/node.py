@@ -2,6 +2,7 @@ import asyncio
 import json
 import uuid
 import time
+from meshweaver.health import calculate_health_score, get_health_status
 from meshweaver.dht import KademliaDHT
 from meshweaver.monitor import ResourceMonitor
 from meshweaver.gossip import GossipManager
@@ -300,7 +301,22 @@ class MeshNode:
 
             else:
                 self.peers[node_id]["status"] = "online"
-                
+    def get_health_info(self):
+        resources = self.get_metadata().get("resources", {})
+
+        cpu_percent = resources.get("cpu_percent", 0)
+        memory_percent = resources.get("memory_percent", 0)
+
+        score = calculate_health_score(
+            cpu_percent=cpu_percent,
+            memory_percent=memory_percent,
+            is_online=self.running
+        )
+
+        return {
+            "score": score,
+            "status": get_health_status(score)
+        }
 class MeshProtocol(asyncio.DatagramProtocol):
 
     def __init__(self, node):
