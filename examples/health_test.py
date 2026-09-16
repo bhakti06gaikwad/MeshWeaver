@@ -1,33 +1,29 @@
-import time
-
-from meshweaver.node import MeshNode
+from meshweaver.health import (
+    calculate_health_score,
+    get_health_status
+)
 
 
 def main():
-
-    node = MeshNode(port=9001)
-
-    peer_id = "test-peer"
-
-    # Add a test peer
-    node.add_peer(
-        peer_id,
-        "127.0.0.1",
-        9002
+    score = calculate_health_score(
+        cpu_percent=25,
+        memory_percent=40,
+        is_online=True
     )
 
-    # Simulate an old heartbeat
-    node.peer_last_seen[peer_id] = time.time() - 20
+    status = get_health_status(score)
 
-    print("\n--- Before health check ---")
-    print(node.get_peers())
+    print("--- Node Health Test ---")
+    print(f"Health Score: {score}/100")
+    print(f"Health Status: {status}")
 
-    print("\n--- Checking peer health ---")
+    offline_score = calculate_health_score(
+        cpu_percent=20,
+        memory_percent=30,
+        is_online=False
+    )
 
-    node.check_peer_health(timeout=10)
-
-    print("\n--- After health check ---")
-    print(node.get_peers())
+    print("\nOffline Node Score:", offline_score)
 
 
 if __name__ == "__main__":
